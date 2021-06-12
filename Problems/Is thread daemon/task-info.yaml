@@ -1,0 +1,18 @@
+type: code
+files:
+- name: src/Main.java
+  visible: true
+  text: |-
+    class ThreadUtil {
+        public static void printIfDaemon(Thread thread) {
+            // implement logic
+        }
+    }
+  learner_created: false
+feedback_link: https://hyperskill.org/learn/step/13221
+status: Solved
+feedback:
+  message: <html>Correct solution<br/><br/>Continue on <a href="https://hyperskill.org/learn/step/13221">JetBrains
+    Academy</a></html>
+  time: Fri, 28 May 2021 00:10:25 UTC
+record: -1

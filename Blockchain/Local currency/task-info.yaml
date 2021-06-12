@@ -1,0 +1,931 @@
+type: edu
+custom_name: stage6
+files:
+- name: src/blockchain/Main.java
+  visible: true
+  text: |
+    package blockchain;
+
+    public class Main {
+        public static void main(String[] args) {
+            System.out.println("Hello World!");
+        }
+    }
+  learner_created: false
+- name: test/BlockchainTest.java
+  visible: false
+  text: |
+    import org.hyperskill.hstest.stage.StageTest;
+    import org.hyperskill.hstest.testcase.CheckResult;
+    import org.hyperskill.hstest.testcase.TestCase;
+
+    import java.util.ArrayList;
+    import java.util.List;
+    import java.util.stream.Collectors;
+
+
+    class BlockParseException extends Exception {
+        BlockParseException(String msg) {
+            super(msg);
+        }
+    }
+
+
+    class Block {
+
+        int id;
+        long timestamp;
+        long magic;
+        String hashprev;
+        String hash;
+
+        static Block parseBlock(String strBlock) throws BlockParseException {
+            if (strBlock.length() == 0) {
+                return null;
+            }
+
+            if (!(strBlock.contains("Block:")
+                && strBlock.contains("Timestamp:"))) {
+
+                return null;
+            }
+
+            Block block = new Block();
+
+            List<String> lines = strBlock
+                .lines()
+                .map(String::strip)
+                .filter(e -> e.length() > 0)
+                .collect(Collectors.toList());
+
+            if (lines.size() < 13) {
+                throw new BlockParseException("Every block should " +
+                    "contain at least 13 lines of data");
+            }
+
+            if (!lines.get(0).equals("Block:")) {
+                throw new BlockParseException("First line of every block " +
+                    "should be \"Block:\"");
+            }
+
+            if (!lines.get(1).startsWith("Created by")) {
+                throw new BlockParseException("Second line of every block " +
+                    "should start with \"Created by\"");
+            }
+
+            if (!lines.get(2).contains("gets 100 VC")) {
+                throw new BlockParseException("Third line of every block " +
+                    "should contain \"gets 100 VC\"");
+            }
+
+            if (!lines.get(3).startsWith("Id:")) {
+                throw new BlockParseException("4-th line of every block " +
+                    "should start with \"Id:\"");
+            }
+
+            String id = lines.get(3).split(":")[1]
+                .strip().replace("-", "");
+            boolean isNumeric = id.chars().allMatch(Character::isDigit);
+
+            if (!isNumeric) {
+                throw new BlockParseException("Id should be a number");
+            }
+
+            block.id = Integer.parseInt(id);
+
+
+
+            if (!lines.get(4).startsWith("Timestamp:")) {
+                throw new BlockParseException("5-th line of every block " +
+                    "should start with \"Timestamp:\"");
+            }
+
+            String timestamp = lines.get(4).split(":")[1]
+                .strip().replace("-", "");
+            isNumeric = timestamp.chars().allMatch(Character::isDigit);
+
+            if (!isNumeric) {
+                throw new BlockParseException("Timestamp should be a number");
+            }
+
+            block.timestamp = Long.parseLong(timestamp);
+
+
+            if (!lines.get(5).startsWith("Magic number:")) {
+                throw new BlockParseException("6-th line of every block " +
+                    "should start with \"Magic number:\"");
+            }
+
+            String magic = lines.get(5).split(":")[1]
+                .strip().replace("-", "");
+            isNumeric = magic.chars().allMatch(Character::isDigit);
+
+            if (!isNumeric) {
+                throw new BlockParseException("Magic number should be a number");
+            }
+
+            block.magic = Long.parseLong(magic);
+
+
+
+            if (!lines.get(6).equals("Hash of the previous block:")) {
+                throw new BlockParseException("7-th line of every block " +
+                    "should be \"Hash of the previous block:\"");
+            }
+
+            if (!lines.get(8).equals("Hash of the block:")) {
+                throw new BlockParseException("9-th line of every block " +
+                    "should be \"Hash of the block:\"");
+            }
+
+            String prevhash = lines.get(7).strip();
+            String hash = lines.get(9).strip();
+
+            if (!(prevhash.length() == 64 || prevhash.equals("0"))
+                || !(hash.length() == 64)) {
+
+                throw new BlockParseException("Hash length should " +
+                    "be equal to 64 except \"0\"");
+            }
+
+            block.hash = hash;
+            block.hashprev = prevhash;
+
+            if (!lines.get(10).startsWith("Block data:")) {
+                throw new BlockParseException("11-th line of every block " +
+                    "should start with \"Block data:\"");
+            }
+
+            return block;
+        }
+
+
+        static List<Block> parseBlocks(String output) throws BlockParseException {
+            String[] strBlocks = output.split("\n\n");
+
+            List<Block> blocks = new ArrayList<>();
+
+            for (String strBlock : strBlocks) {
+                Block block = parseBlock(strBlock.strip());
+                if (block != null) {
+                    blocks.add(block);
+                }
+            }
+
+            return blocks;
+        }
+    }
+
+    class Clue {
+        String zeros;
+        Clue(int n) {
+            zeros = "0".repeat(n);
+        }
+    }
+
+
+    public class BlockchainTest extends StageTest<Clue> {
+
+        List<String> previousOutputs = new ArrayList<>();
+
+        @Override
+        public List<TestCase<Clue>> generate() {
+            return List.of(
+                new TestCase<>(),
+                new TestCase<>()
+            );
+        }
+
+        @Override
+        public CheckResult check(String reply, Clue clue) {
+
+            if (previousOutputs.contains(reply)) {
+                return new CheckResult(false,
+                    "You already printed this text in the previous tests");
+            }
+
+            previousOutputs.add(reply);
+
+            List<Block> blocks;
+            try {
+                blocks = Block.parseBlocks(reply);
+            } catch (BlockParseException ex) {
+                return new CheckResult(false, ex.getMessage());
+            } catch (Exception ex) {
+                return CheckResult.wrong("");
+            }
+
+            if (blocks.size() != 15) {
+                return new CheckResult(false,
+                    "In this stage you should output 15 blocks, found " + blocks.size());
+            }
+
+            for (int i = 1; i < blocks.size(); i++) {
+                Block curr = blocks.get(i - 1);
+                Block next = blocks.get(i);
+
+                if (curr.id + 1 != next.id) {
+                    return new CheckResult(false,
+                        "Id`s of blocks should increase by 1");
+                }
+
+                if (next.timestamp < curr.timestamp) {
+                    return new CheckResult(false,
+                        "Timestamp`s of blocks should increase");
+                }
+
+                if (!next.hashprev.equals(curr.hash)) {
+                    return new CheckResult(false, "Two hashes aren't equal, " +
+                        "but should");
+                }
+            }
+
+
+            return CheckResult.correct();
+        }
+    }
+  learner_created: false
+- name: my_blockchain-6059f.txt
+  visible: true
+  text: "��\0\x05sr\0\x15blockchain.BlockChain�\x10!\x0e����\x02\0\x05I\0\x01nI\0\n\
+    previousIdI\0\x10registeredMinersL\0\x06blockst\0\x15Ljava/util/ArrayList;L\0\f\
+    previousHasht\0\x12Ljava/lang/String;xp\0\0\0\x06\0\0\0\x06\0\0\0\x04sr\0\x13\
+    java.util.ArrayListx��\x1d��a�\x03\0\x01I\0\x04sizexp\0\0\0\x06w\x04\0\0\0\x06\
+    sr\0\x10blockchain.Block��,�u*��\x02\0\tJ\0\x0egenerationTimeI\0\x02idI\0\x05\
+    magicI\0\aminerIdJ\0\ttimeStampL\0\tchangeOfNq\0~\0\x02L\0\acontentq\0~\0\x02\
+    L\0\x06myHashq\0~\0\x02L\0\fpreviousHashq\0~\0\x02xp\0\0\0\0\0\0\0\x05\0\0\0\x01\
+    �Ş�\0\0\0\0\0\0\x01y�)\x16\x1at\0\x15N was increased to 1\nt\0\0t\0@9cf0141c3b6059fd35f97b07096edf57e04b7f406f7edb797e8d498853c34749t\0\
+    \x010sq\0~\0\x06\0\0\0\0\0\0\0\x01\0\0\0\x02�\x15��\0\0\0\0\0\0\x01y�)\x16\"t\0\
+    \x15N was increased to 2\nq\0~\0\tt\0@09c63207d19fbfca2ab6d31279e80cde4079af4ecca07f52f83ebea0113bdfeeq\0\
+    ~\0\nsq\0~\0\x06\0\0\0\0\0\0\0\x06\0\0\0\x03\x1a��\x1a\0\0\0\x01\0\0\x01y�)\x16\
+    /t\0\x15N was increased to 3\nq\0~\0\tt\0@005b814ca8f9d78db5dcb956d8fcef5af572740338307e3b5770630749ead0cbq\0\
+    ~\0\x0esq\0~\0\x06\0\0\0\0\0\0\0\e\0\0\0\x04�\0\0\0\x01\0\0\x01y�)\x165t\0\x15\
+    N was increased to 4\nq\0~\0\tt\0@0009d66f382fe67fc167f32c2007d93e61c849efee13d5f3c0e02d619bba8235q\0\
+    ~\0\x11sq\0~\0\x06\0\0\0\0\0\0\0�\0\0\0\x05U�O-\0\0\0\x02\0\0\x01y�)\x16at\0\x15\
+    N was increased to 5\nq\0~\0\tt\0@0000c7166fe9862387e275ec7f7d8c9dab6f4b01dcdd13ac7cd02eba5a056302q\0\
+    ~\0\x14sq\0~\0\x06\0\0\0\0\0\0\0\x02\0\0\0\x06����\0\0\0\x01\0\0\x01y�)\x19@t\0\
+    \x15N was increased to 6\nq\0~\0\tt\0@0000005896f71f4278ef3c877eb821ffad17ba32ae14dd1e8ef6c40c6ca36cd9q\0\
+    ~\0\x17xq\0~\0\x1a"
+  learner_created: true
+- name: src/chat/MessageList.java
+  visible: true
+  text: |
+    package chat;
+
+    import java.util.ArrayList;
+    import java.util.List;
+
+    public class MessageList {
+        List<Message> messages;
+
+        public MessageList() {
+            this.messages = new ArrayList<>();
+        }
+
+        public void addMessage(Message msg) {
+            messages.add(msg);
+        }
+
+        @Override
+        public String toString() {
+            if (messages.isEmpty()) {
+                return "";
+            }
+
+            StringBuilder sb = new StringBuilder("\n");
+
+            this.messages.stream()
+                    .map(msg -> msg.getFrom() + ": " + msg.getContent() + "\n")
+                    .forEach(sb::append);
+
+            return sb.toString().substring(0, sb.length() - 2);
+        }
+    }
+  learner_created: true
+- name: src/miners/Miner.java
+  visible: true
+  text: |
+    package miners;
+
+    import blockchain.Block;
+    import blockchain.BlockChain;
+
+    public class Miner<T> implements Runnable {
+
+        private BlockChain<T> blockChain;
+        private MiningManager<T> manager;
+        private int minerId;
+
+        public Miner(BlockChain<T> blockChain, MiningManager<T> manager) {
+            this.blockChain = blockChain;
+            this.manager = manager;
+            this.minerId = this.blockChain.newMinerId();
+        }
+
+        @Override
+        public void run() {
+            while (!manager.isTargetReached()) {
+                Block<T> block = generateNewBlock();
+                manager.blockGenerated(block);
+            }
+        }
+
+
+        private Block<T> generateNewBlock() {
+            Block<T> block;
+            do {
+                block = new Block<T>(blockChain.getContent(), blockChain.getPreviousId() + 1,
+                        blockChain.getPreviousHash(), blockChain.getN(), minerId);
+            } while (!blockChain.validate(block));
+
+            return block;
+        }
+
+    }
+  learner_created: true
+- name: my_blockchain-28e89.txt
+  visible: true
+  text: "��\0\x05sr\0\x15blockchain.BlockChain�\x10!\x0e����\x02\0\x05I\0\x01nI\0\n\
+    previousIdI\0\x10registeredMinersL\0\x06blockst\0\x15Ljava/util/ArrayList;L\0\f\
+    previousHasht\0\x12Ljava/lang/String;xp\0\0\0\x06\0\0\0\x06\0\0\0\x04sr\0\x13\
+    java.util.ArrayListx��\x1d��a�\x03\0\x01I\0\x04sizexp\0\0\0\x06w\x04\0\0\0\x06\
+    sr\0\x10blockchain.Block��,�u*��\x02\0\tJ\0\x0egenerationTimeI\0\x02idI\0\x05\
+    magicI\0\aminerIdJ\0\ttimeStampL\0\tchangeOfNq\0~\0\x02L\0\acontentq\0~\0\x02\
+    L\0\x06myHashq\0~\0\x02L\0\fpreviousHashq\0~\0\x02xp\0\0\0\0\0\0\03\0\0\0\x01�\
+    �nc\0\0\0\x03\0\0\x01y�&~�t\0\x15N was increased to 1\nt\0\0t\0@1fd0de3bb628e89b720b7f2883e0df2e0a179714d5c823967616d62cb6783a72t\0\
+    \x010sq\0~\0\x06\0\0\0\0\0\0\0\x01\0\0\0\x02<�̶\0\0\0\x03\0\0\x01y�&~�t\0\x15\
+    N was increased to 2\nq\0~\0\tt\0@049b2442372fa3e5966fc592a75b0c488ffd78a04b9eca2a36534622d343aebbq\0\
+    ~\0\nsq\0~\0\x06\0\0\0\0\0\0\0\x05\0\0\0\x03\x1cfn�\0\0\0\0\0\0\x01y�&~�t\0\x15\
+    N was increased to 3\nq\0~\0\tt\0@009cebf73ec0d1537e4dd9341df75b99ba2754d8f016e0e64924ea95ee7735a2q\0\
+    ~\0\x0esq\0~\0\x06\0\0\0\0\0\0\0&\0\0\0\x04���/\0\0\0\x01\0\0\x01y�&~�t\0\x15\
+    N was increased to 4\nq\0~\0\tt\0@000a3d964a0500eae3c94bfb2180bcd463afee6bd823bf9c390dbf6034eab750q\0\
+    ~\0\x11sq\0~\0\x06\0\0\0\0\0\0\0�\0\0\0\x05�e�|\0\0\0\x03\0\0\x01y�&\x7f�t\0\x15\
+    N was increased to 5\nq\0~\0\tt\0@0000f046aace4fdaf705b33c3363e4dd908f67955fea01c7e2e71b6f7c94c0f3q\0\
+    ~\0\x14sq\0~\0\x06\0\0\0\0\0\0\a�\0\0\0\x06��v�\0\0\0\x02\0\0\x01y�&��t\0\x15\
+    N was increased to 6\nq\0~\0\tt\0@000002871651be2a202b549b17e46c277cc47df910259d59c6f5c54580bcb85cq\0\
+    ~\0\x17xq\0~\0\x1a"
+  learner_created: true
+- name: src/blockchain/StringUtil.java
+  visible: true
+  text: |-
+    package blockchain;
+
+    import java.security.MessageDigest;
+    import java.util.Objects;
+
+    public class StringUtil {
+        /* Applies Sha256 to a string and returns a hash. */
+        public static String applySha256(String input) {
+            try {
+                MessageDigest digest = MessageDigest.getInstance("SHA-256");
+                /* Applies sha256 to our input */
+                byte[] hash = digest.digest(input.getBytes("UTF-8"));
+                StringBuilder hexString = new StringBuilder();
+                for (byte elem : hash) {
+                    String hex = Integer.toHexString(0xff & elem);
+                    if (hex.length() == 1) hexString.append('0');
+                    hexString.append(hex);
+                }
+                return hexString.toString();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        public static boolean startsWithZeros(String str, int howManyZeros) {
+            if (howManyZeros == 0) {
+                return true;
+            }
+
+            if (Objects.isNull(str)
+                    || str.length() < howManyZeros
+                    || str.length() == 0
+                    || howManyZeros < 0) {
+                return false;
+            }
+
+
+            return str.substring(0, howManyZeros).matches("0+");
+        }
+
+    }
+  learner_created: true
+- name: src/chat/Message.java
+  visible: true
+  text: |
+    package chat;
+
+    public class Message {
+
+        private String from;
+        private String content;
+        private long timeStamp;
+        private int id;
+
+        public Message(String from, String content) {
+            this.from = from;
+            this.content = content;
+            this.timeStamp = System.nanoTime();
+        }
+
+
+        public String getFrom() {
+            return from;
+        }
+
+        public String getContent() {
+            return content;
+        }
+
+        public long getTimeStamp() {
+            return timeStamp;
+        }
+
+        @Override
+        public String toString() {
+            return "Message{" +
+                    "from='" + from + '\'' +
+                    ", content='" + content + '\'' +
+                    ", timeStamp=" + timeStamp +
+                    '}';
+        }
+
+        public String getHashableContent() {
+            return this.toString();
+        }
+    }
+  learner_created: true
+- name: my_blockchain-7bb69.txt
+  visible: true
+  text: "��\0\x05sr\0\x15blockchain.BlockChain�\x10!\x0e����\x02\0\x05I\0\x01nI\0\n\
+    previousIdI\0\x10registeredMinersL\0\x06blockst\0\x15Ljava/util/ArrayList;L\0\f\
+    previousHasht\0\x12Ljava/lang/String;xp\0\0\0\a\0\0\0\a\0\0\0\x04sr\0\x13java.util.ArrayListx�\
+    �\x1d��a�\x03\0\x01I\0\x04sizexp\0\0\0\aw\x04\0\0\0\asr\0\x10blockchain.Block�\
+    �,�u*��\x02\0\tJ\0\x0egenerationTimeI\0\x02idI\0\x05magicI\0\aminerIdJ\0\ttimeStampL\0\
+    \tchangeOfNq\0~\0\x02L\0\acontentq\0~\0\x02L\0\x06myHashq\0~\0\x02L\0\fpreviousHashq\0\
+    ~\0\x02xp\0\0\0\0\0\0\0a\0\0\0\x01���\0\0\0\x01\0\0\x01y�(�t\0\x15N was increased\
+    \ to 1\nt\0\0t\0@bbaee0671b7bb692da637c643640feed13f69a491f06a19c5368691d5db41df3t\0\
+    \x010sq\0~\0\x06\0\0\0\0\0\0\0\x01\0\0\0\x02\x1e��\0\0\0\x01\0\0\x01y�(�\x12t\0\
+    \x15N was increased to 2\nq\0~\0\tt\0@014cca1f4552cb0d286af50569276517ec61c0644063edc42fa6eb501ef8a43bq\0\
+    ~\0\nsq\0~\0\x06\0\0\0\0\0\0\0\f\0\0\0\x03u:\x10�\0\0\0\x01\0\0\x01y�(�\x13t\0\
+    \x15N was increased to 3\nq\0~\0\tt\0@008f0608d1d33786ff1baf4ffc9fafad37a70b7e40a5e9e0edcf5822b3911bbcq\0\
+    ~\0\x0esq\0~\0\x06\0\0\0\0\0\0\0R\0\0\0\x04ݭ\x11�\0\0\0\0\0\0\x01y�(�#t\0\x15\
+    N was increased to 4\nq\0~\0\tt\0@00015647830b12090e161fe22d58a411867cc1c8534a2c9f3512b23b1af4a17aq\0\
+    ~\0\x11sq\0~\0\x06\0\0\0\0\0\0\x01�\0\0\0\x058޷J\0\0\0\0\0\0\x01y�(�ut\0\x15N\
+    \ was increased to 5\nq\0~\0\tt\0@000075d4909cecac1eaee88a7527bba5b741fa166a3d1c268077fa6fe9058cebq\0\
+    ~\0\x14sq\0~\0\x06\0\0\0\0\0\0\x02�\0\0\0\x06�AC�\0\0\0\x01\0\0\x01y�(�;t\0\x15\
+    N was increased to 6\nq\0~\0\tt\0@00000b236342043c9352f636ed44d4289692892709449b128571948f19e27223q\0\
+    ~\0\x17sq\0~\0\x06\0\0\0\0\0\0\x04�\0\0\0\aS��!\0\0\0\x02\0\0\x01y�(�st\0\x15\
+    N was increased to 7\nq\0~\0\tt\0@0000009ae534da822cca982e46408bfa0049f316052de3bcb7a9b9fb6ca4ac34q\0\
+    ~\0\x1axq\0~\0\x1d"
+  learner_created: true
+- name: my_blockchain46c66.txt
+  visible: true
+  text: "��\0\x05sr\0\x15blockchain.BlockChain�\x10!\x0e����\x02\0\x05I\0\x01nI\0\n\
+    previousIdI\0\x10registeredMinersL\0\x06blockst\0\x15Ljava/util/ArrayList;L\0\f\
+    previousHasht\0\x12Ljava/lang/String;xp\0\0\0\x06\0\0\0\a\0\0\0\x04sr\0\x13java.util.ArrayListx�\
+    �\x1d��a�\x03\0\x01I\0\x04sizexp\0\0\0\aw\x04\0\0\0\asr\0\x10blockchain.Blockk�\
+    ��*\n�1\x02\0\tJ\0\x0egenerationTimeI\0\x02idI\0\x05magicI\0\aminerIdJ\0\ttimeStampL\0\
+    \tchangeOfNq\0~\0\x02L\0\acontentq\0~\0\x02L\0\x06myHashq\0~\0\x02L\0\fpreviousHashq\0\
+    ~\0\x02xp\0\0\0\0\0\0\09\0\0\0\x01��P\0\0\0\x02\0\0\x01y�\"\x1a}t\0\x15N was increased\
+    \ to 1\nt\0\0t\0@83a7a9946646c66afd6a888bb9a38b86328c1b5c4c2d6b7c042717900d9899d8t\0\
+    \x010sq\0~\0\x06\0\0\0\0\0\0\0\0\0\0\0\x02.\x1e��\0\0\0\x02\0\0\x01y�\"\x1a�t\0\
+    \x15N was increased to 2\nq\0~\0\tt\0@005547f4018184f30a00e32b88eea146735a50fcc6e34b41242a31c008aa16d2q\0\
+    ~\0\nsq\0~\0\x06\0\0\0\0\0\0\0\x06\0\0\0\x03\x18�s�\0\0\0\x01\0\0\x01y�\"\x1a�\
+    t\0\x15N was increased to 3\nq\0~\0\tt\0@00cb1cbcd3f38d595b57d358146604fbaf5610209c062c0f7234994e2ceeccafq\0\
+    ~\0\x0esq\0~\0\x06\0\0\0\0\0\0\0\n\0\0\0\x04�\x119y\0\0\0\x03\0\0\x01y�\"\eit\0\
+    \x15N was increased to 4\nq\0~\0\tt\0@000d4ac1df4c78e286673977fcb2b9bb5f94e2ac1c46e324f12f6a3b641f7ec9q\0\
+    ~\0\x11sq\0~\0\x06\0\0\0\0\0\0\0o\0\0\0\x05� ]o\0\0\0\0\0\0\x01y�\"\e�t\0\x15\
+    N was increased to 5\nq\0~\0\tt\0@0000a673a36c9983f8163b80cce5a99860ce0508c97dbcf99605051924fb358eq\0\
+    ~\0\x14sq\0~\0\x06\0\0\0\0\0\0\x03G\0\0\0\x06��G�\0\0\0\x01\0\0\x01y�\"\x1c\x19\
+    t\0\x15N was increased to 6\nq\0~\0\tt\0@00000c7ff8d576900d867391cb8acf42f0a719137d9da2c5cfc3d1c1a0a5dd59q\0\
+    ~\0\x17sq\0~\0\x06\0\0\0\0\0\0\x13,\0\0\0\a\x1cUЮ\0\0\0\x03\0\0\x01y�\"\"�t\0\x11\
+    N stays the same\nq\0~\0\tt\0@0000008d38fb2d207388a76d4f5e28d9099f6cc8f8f4dc3b1c64afc1225a51bdq\0\
+    ~\0\x1axq\0~\0\x1d"
+  learner_created: true
+- name: src/miners/MiningManager.java
+  visible: true
+  text: |
+    package miners;
+
+    import blockchain.Block;
+    import blockchain.BlockChain;
+
+    import java.util.ArrayList;
+    import java.util.concurrent.ExecutorService;
+    import java.util.concurrent.Executors;
+    import java.util.concurrent.TimeUnit;
+
+    public class MiningManager<T> implements Runnable {
+
+        private static final int DEFAULT_NUMBER_OF_MINERS = 4;
+        private volatile int blocksGenerated;
+        private int target;
+        private volatile ArrayList<Block<T>> ourBlocks;
+        private ArrayList<Miner<T>> ourMiners;
+        private BlockChain<T> blockChain;
+        private ExecutorService executor;
+        private int numberOfMiners;
+
+
+        public MiningManager(BlockChain<T> blockChain, int target) {
+            this.blocksGenerated = 0;
+            this.target = target;
+            this.ourBlocks = new ArrayList<>();
+            this.ourMiners = new ArrayList<>();
+            this.blockChain = blockChain;
+            this.numberOfMiners = DEFAULT_NUMBER_OF_MINERS;
+            this.executor = Executors.newFixedThreadPool(this.numberOfMiners);
+        }
+
+
+        @Override
+        public void run() {
+            work();
+        }
+
+        public void work() {
+            for (int i = 0; i < numberOfMiners; i++) {
+                ourMiners.add(new Miner<T>(blockChain, this));
+            }
+
+            for (Miner<T> miner : ourMiners) {
+                executor.submit(miner);
+            }
+
+            executor.shutdown();
+            try {
+                executor.awaitTermination(12, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+        }
+
+        synchronized void blockGenerated(Block<T> block) {
+            if (isTargetReached()) {
+                executor.shutdownNow();
+            } else {
+                blocksGenerated++;
+                ourBlocks.add(block);
+            }
+        }
+
+        synchronized boolean isTargetReached() {
+            return blocksGenerated >= target;
+        }
+
+
+        public synchronized ArrayList<Block<T>> getBlocks(int from, int to) {
+            int len = from - to + 1;
+            ArrayList<Block<T>> blocks = new ArrayList<>();
+
+            for (int i = from; i <= to && i < ourBlocks.size(); i++) {
+                blocks.add(ourBlocks.get(i));
+            }
+
+            return blocks;
+        }
+
+    }
+  learner_created: true
+- name: src/chat/Chat.java
+  visible: true
+  text: |
+    package chat;
+
+    import blockchain.Block;
+    import blockchain.ContentSupplier;
+    import miners.MiningManager;
+
+    import java.util.ArrayList;
+    import java.util.List;
+    import java.util.Random;
+    import java.util.function.Supplier;
+
+    public class Chat implements ContentSupplier<MessageList> {
+        private MiningManager<MessageList> manager;
+        private String[] names = {"Alex", "Jessica", "Jack", "Max", "Amelie", "Janette", "Karl"};
+        private String[] verbs = {"want", "need", "miss", "love"};
+        private String[] nouns = {"oranges", "relax", "him", "cats", "home", "sleep"};
+        private Random rand;
+        private MessageList msgList;
+        private List<Block<MessageList>> myBlocks;
+        private Supplier<String> messageGenerator =
+                () -> "I " + verbs[rand.nextInt(3)] + " " + nouns[rand.nextInt(4)];
+        private Supplier<String> nameGenerator =
+                () -> names[rand.nextInt(6)];
+
+        public Chat() {
+            this.rand = new Random();
+            this.msgList = new MessageList();
+            this.myBlocks = new ArrayList<>();
+        }
+
+        public synchronized MessageList blockGenerated(Block<MessageList> block) {
+            if (block != null) {
+                myBlocks.add(block);
+            }
+
+            MessageList oldList = msgList;
+            msgList = new MessageList();
+            for (int i = 0; i < rand.nextInt(4); i++) {
+                msgList.addMessage(new Message(nameGenerator.get(), messageGenerator.get()));
+            }
+
+            return oldList;
+        }
+
+        public synchronized void newMessage(Message msg) {
+            msgList.addMessage(msg);
+        }
+
+        public List<Block<MessageList>> getMyBlocks() {
+            return myBlocks;
+        }
+    }
+  learner_created: true
+- name: src/blockchain/BlockChain.java
+  visible: true
+  text: |
+    package blockchain;
+
+    import java.io.*;
+    import java.util.ArrayList;
+    import java.util.Objects;
+
+    public class BlockChain<T> implements Serializable {
+        private static final long serialVersionUID = -932208795683975455L;
+        private ArrayList<Block<T>> blocks;
+        private int previousId;
+        private String previousHash;
+        private int n;  // number of zeros needed for a hash to be valid - can change with time
+        private int registeredMiners;
+        private T content;
+        private ContentSupplier<T> contentSupplier;
+
+
+        public BlockChain(ContentSupplier<T> contentSupplier) {
+            this.blocks = new ArrayList<>();
+            this.previousId = 0;
+            this.previousHash = "0";
+            this.n = 0;
+            this.registeredMiners = 0;
+            this.contentSupplier = contentSupplier;
+            this.content = contentSupplier.blockGenerated(null);
+        }
+
+        public static <T> void saveToFile(BlockChain<T> blockChain) {
+            String randString = blockChain.getBlock(0).getMyHash().substring(10, 15);
+            File file = new File("my_blockchain-" + randString + ".txt");
+            try {
+                FileOutputStream fos = new FileOutputStream(file);
+                ObjectOutputStream oos = new ObjectOutputStream(fos);
+                oos.writeObject(blockChain);
+                oos.close();
+    //            System.out.println("Succesfully saved!");
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+        }
+
+        public static <T> BlockChain<T> readFromFile() {
+            File file = new File("my_blockchain.txt");
+            BlockChain<T> blockChain = null;
+
+            try {
+                FileInputStream fis = new FileInputStream(file);
+                ObjectInputStream ois = new ObjectInputStream(fis);
+                Object obj = ois.readObject();
+                blockChain = (BlockChain<T>) obj;
+            } catch (IOException | ClassNotFoundException e) {
+                e.printStackTrace();
+            }
+
+            System.out.println("Read from the file! and is null? : " + Objects.isNull(blockChain));
+
+            return blockChain;
+        }
+
+        public synchronized boolean validate(Block<T> block) {
+
+            if (block.getPreviousHash().equals(this.previousHash)
+                    && block.getId() == previousId + 1
+                    && StringUtil.startsWithZeros(block.getMyHash(), this.n)) {
+                T newContent = contentSupplier.blockGenerated(block);
+                this.content = newContent;
+
+                this.blocks.add(block);
+                this.previousHash = block.getMyHash();
+                this.previousId += 1;
+
+
+                String changeN;
+                int generationTime = block.getGenerationTimeSeconds();
+                if (generationTime < 4) {
+                    changeN = "N was increased to " + (++n);
+                } else if (generationTime > 60) {
+                    changeN = "N was decreased by 1";
+                    this.n--;
+                } else {
+                    changeN = "N stays the same";
+                }
+                changeN += "\n";
+                block.setChangeOfN(changeN);
+
+                return true;
+            }
+
+            return false;
+        }
+
+        public synchronized T getContent() {
+            return content;
+        }
+
+        public synchronized int getPreviousId() {
+            return previousId;
+        }
+
+        public synchronized String getPreviousHash() {
+            return previousHash;
+        }
+
+        public synchronized int getN() {
+            return n;
+        }
+
+        public synchronized Block<T> getBlock(int id) {
+            return id >= 0 && id < blocks.size() ? blocks.get(id) : null;
+        }
+
+        public synchronized int newMinerId() {
+            return this.registeredMiners++;
+        }
+
+        /*
+           public Block[] generate(int howMany, int zeros) {
+            Block[] arr = new Block[howMany];
+            for (int i = 0; i < howMany; i++) {
+                Block bl = new Block("", ++previousId, previousHash, zeros);
+                previousHash = bl.getMyHash();
+                arr[i] = bl;
+                blocks.add(bl);
+            }
+
+            return arr;
+        }
+
+        */
+
+
+    }
+  learner_created: true
+- name: src/blockchain/ContentSupplier.java
+  visible: true
+  text: |
+    package blockchain;
+
+    public interface ContentSupplier<T> {
+
+        /*
+        Informs the supplier that the block was just generated
+        and returns a new update of content for the next block.
+         */
+        T blockGenerated(Block<T> block);
+    }
+  learner_created: true
+- name: src/blockchain/Block.java
+  visible: true
+  text: |
+    package blockchain;
+
+    import java.io.Serializable;
+    import java.util.Date;
+    import java.util.Random;
+
+
+    public class Block<T> implements Serializable {
+
+        private static final long serialVersionUID = -1601262113489518187L;
+        private T content;
+        private int id;
+        private int minerId;
+        private int magic;
+        private String previousHash;
+        private String myHash;
+        private long timeStamp;
+        private long generationTime;
+        private String changeOfN;
+
+
+        public Block(T content, int id, String previousHash, int requiredZeros, int minerId) {
+            this.content = content;
+            this.id = id;
+            this.previousHash = previousHash;
+            this.timeStamp = new Date().getTime();
+            this.minerId = minerId;
+            generateHash(requiredZeros);
+        }
+
+
+        private void generateHash(int zeros) {
+            Random rand = new Random();
+            long startTime = System.currentTimeMillis();
+    //        long attempts = 0;
+
+            do {
+    //            attempts++;
+                magic = rand.nextInt();
+                String info = getHashableContent();
+                myHash = StringUtil.applySha256(info);
+            } while (!StringUtil.startsWithZeros(this.myHash, zeros));
+
+    //        System.out.println("zeros = " + zeros + "  attempts = " + attempts);
+
+            this.generationTime = System.currentTimeMillis() - startTime;
+        }
+
+
+        public String getHashableContent() {
+            return magic + content.toString() + id + previousHash + timeStamp + minerId;
+        }
+
+        @Override
+        public String toString() {
+            return "Block: " + "\n"
+                    + "Created by miner # " + minerId
+                    + "\nId: " + id
+                    + "\nTimestamp: " + timeStamp +
+                    "\nMagic number: " + magic +
+                    "\nHash of the previous block:\n"
+                    + previousHash + "\nHash of the block:\n" + myHash
+                    + "\nBlock data: " + content.toString();
+        }
+
+        public String generationTimeString() {
+            return "Block was generating for " + getGenerationTimeSeconds() + " seconds";
+        }
+
+        public int getGenerationTimeSeconds() {
+            return (int) generationTime / 1000;
+        }
+
+        public int getMinerId() {
+            return minerId;
+        }
+
+        public T getContent() {
+            return content;
+        }
+
+        public int getId() {
+            return id;
+        }
+
+        public String getPreviousHash() {
+            return previousHash;
+        }
+
+        public String getMyHash() {
+            return myHash;
+        }
+
+        public long getTimeStamp() {
+            return timeStamp;
+        }
+
+        public String getChangeOfN() {
+            return changeOfN;
+        }
+
+        public void setChangeOfN(String changeOfN) {
+            this.changeOfN = changeOfN;
+        }
+
+
+    }
+  learner_created: true
+- name: src/bank/TransactionDatabase.java
+  visible: true
+  learner_created: true
+- name: src/bank/Account.java
+  visible: true
+  learner_created: true
+- name: src/bank/Transaction.java
+  visible: true
+  learner_created: true
+- name: src/bank/TransactionList.java
+  visible: true
+  learner_created: true
+- name: src/bank/AccountGenerator.java
+  visible: true
+  learner_created: true
+feedback_link: https://hyperskill.org/projects/50/stages/276/implement
+status: Solved
+feedback:
+  message: Congratulations! Continue on <a href="https://hyperskill.org/projects/50/stages/276/implement">JetBrains
+    Academy</a>
+  time: Sat, 12 Jun 2021 21:15:04 UTC
+record: -1

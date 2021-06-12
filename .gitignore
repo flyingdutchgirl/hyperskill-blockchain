@@ -1,0 +1,29 @@
+# Project exclude paths
+/.gradle/
+/Blockchain/task/build/
+/Blockchain/task/out/
+/Blockchain/task/out/production/classes/
+/Problems/A stream without zero/out/
+/Problems/A stream without zero/out/production/classes/
+/Problems/Catching some exceptions/out/
+/Problems/Catching some exceptions/out/production/classes/
+/Problems/Is thread daemon/out/
+/Problems/Is thread daemon/out/production/classes/
+/Problems/Odd and even/out/
+/Problems/Odd and even/out/production/classes/
+/Problems/Palindrome/out/
+/Problems/Palindrome/out/production/classes/
+/Problems/Password processing/out/
+/Problems/Password processing/out/production/classes/
+/Problems/Right Rotation/out/
+/Problems/Right Rotation/out/production/classes/
+/Problems/Secret codes/out/
+/Problems/Secret codes/out/production/classes/
+/Problems/Set average/out/
+/Problems/Set average/out/production/classes/
+/Problems/Sherlock Holmes and removing of characters/out/
+/Problems/Sherlock Holmes and removing of characters/out/production/classes/
+/Problems/Static factory methods for Time/out/
+/Problems/Static factory methods for Time/out/production/classes/
+/Problems/The ten most frequent words/out/
+/Problems/The ten most frequent words/out/production/classes/
